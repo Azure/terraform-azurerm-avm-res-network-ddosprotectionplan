@@ -22,7 +22,7 @@ module "DDOSPROTECTIONPLAN" {
   # source             = "Azure/avm-<res/ptn>-<name>/azurerm"
   enable_telemetry    = var.enable_telemetry
   resource_group_name = azurerm_resource_group.this.name
-  name                = module.naming.ddos_plan.name_unique
+  name                = module.naming.network_ddos_protection_plan.name_unique
   location            = var.ddos_plan_location
   diagnostic_settings = {
     to_la = {
