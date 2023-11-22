@@ -18,5 +18,4 @@ module "DDOSPROTECTIONPLAN" {
   resource_group_name = azurerm_resource_group.this.name
   name                = module.naming.resource_group.name_unique
   location            = var.ddos_plan_location
-  # ...
 }
