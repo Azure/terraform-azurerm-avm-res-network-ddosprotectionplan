@@ -4,25 +4,7 @@
 This deploys the module in its simplest form.
 
 ```hcl
-terraform {
-  required_version = ">= 1.0.0"
-  required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = ">= 3.7.0, < 4.0.0"
-    }
-  }
-}
 
-variable "enable_telemetry" {
-  type        = bool
-  default     = true
-  description = <<DESCRIPTION
-This variable controls whether or not telemetry is enabled for the module.
-For more information see https://aka.ms/avm/telemetryinfo.
-If it is set to false, then no telemetry will be collected.
-DESCRIPTION
-}
 
 # This ensures we have unique CAF compliant names for our resources.
 module "naming" {
@@ -33,14 +15,17 @@ module "naming" {
 # This is required for resource modules
 resource "azurerm_resource_group" "this" {
   name     = module.naming.resource_group.name_unique
-  location = "MYLOCATION"
+  location = var.rg_location
 }
 
 # This is the module call
-module "MYMODULE" {
+module "DDOSPROTECTIONPLAN" {
   source = "../../"
   # source             = "Azure/avm-<res/ptn>-<name>/azurerm"
   enable_telemetry = var.enable_telemetry
+  resource_group_name = azurerm_resource_group.this.name
+  name = module.naming.resource_group.name_unique
+  location = var.ddos_plan_location
   # ...
 }
 ```
@@ -75,6 +60,15 @@ No required inputs.
 
 The following input variables are optional (have default values):
 
+### <a name="input_ddos_plan_location"></a> [ddos\_plan\_location](#input\_ddos\_plan\_location)
+
+Description: This variable defines the Azure region where the DDOS protection plan will be created.  
+The default value is "westus".
+
+Type: `string`
+
+Default: `"westus"`
+
 ### <a name="input_enable_telemetry"></a> [enable\_telemetry](#input\_enable\_telemetry)
 
 Description: This variable controls whether or not telemetry is enabled for the module.  
@@ -85,15 +79,28 @@ Type: `bool`
 
 Default: `true`
 
+### <a name="input_rg_location"></a> [rg\_location](#input\_rg\_location)
+
+Description: This variable defines the Azure region where the resource group will be created.  
+The default value is "westus".
+
+Type: `string`
+
+Default: `"westus"`
+
 ## Outputs
 
-No outputs.
+The following outputs are exported:
+
+### <a name="output_resource"></a> [resource](#output\_resource)
+
+Description: The ddos protection plan resource.
 
 ## Modules
 
 The following Modules are called:
 
-### <a name="module_MYMODULE"></a> [MYMODULE](#module\_MYMODULE)
+### <a name="module_DDOSPROTECTIONPLAN"></a> [DDOSPROTECTIONPLAN](#module\_DDOSPROTECTIONPLAN)
 
 Source: ../../
 
