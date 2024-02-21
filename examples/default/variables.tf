@@ -17,7 +17,6 @@ The default value is "westus".
 DESCRIPTION
 }
 
-// Specifies the location of the virtual network.
 variable "ddos_plan_location" {
   type        = string
   default     = "westus"

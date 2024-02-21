@@ -1,20 +1,63 @@
 <!-- BEGIN_TF_DOCS -->
 # terraform-azurerm-avm-res-network-ddosprotectionplan
 
-Module to enable DDoS protection plan in Azure
+
+This deploys the module in its simplest form.
+
+```hcl
+# This ensures we have unique CAF compliant names for our resources.
+module "naming" {
+  source  = "Azure/naming/azurerm"
+  version = "0.3.0"
+}
+
+# This is required for resource modules
+resource "azurerm_resource_group" "this" {
+  name     = module.naming.resource_group.name_unique
+  location = var.rg_location
+}
+
+# This is the module call
+module "DDOSPROTECTIONPLAN" {
+  source = "../../"
+  # source             = "Azure/avm-<res/ptn>-<name>/azurerm"
+  enable_telemetry    = var.enable_telemetry
+  resource_group_name = azurerm_resource_group.this.name
+  name                = module.naming.network_ddos_protection_plan.name_unique
+  location            = var.ddos_plan_location
+}
+```
+
 
 <!-- markdownlint-disable MD033 -->
 ## Requirements
 
-The following requirements are needed by this module:
 
-- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.6.0)
+| Name | Version |
+|------|---------|
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0.0 |
+| <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) | >= 3.7.0, < 4.0.0 |
 
-- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (>= 3.71.0)
+## Providers
 
-- <a name="requirement_random"></a> [random](#requirement\_random) (>= 3.5.0)
+| Name | Version |
+|------|---------|
+| <a name="provider_azurerm"></a> [azurerm](#provider\_azurerm) | >= 3.7.0, < 4.0.0 |
 
-- <a name="requirement_time"></a> [time](#requirement\_time) (>= 0.9.1)
+## Resources
+
+| Name | Type |
+|------|------|
+| [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) | resource |
+
+<!-- markdownlint-disable MD013 -->
+## Inputs
+
+| Name | Description | Type | Default | Required |
+|------|-------------|------|---------|:--------:|
+| <a name="input_ddos_plan_location"></a> [ddos\_plan\_location](#input\_ddos\_plan\_location) | This variable defines the Azure region where the DDOS protection plan will be created.<br>The default value is "westus". | `string` | `"westus"` | no |
+| <a name="input_enable_telemetry"></a> [enable\_telemetry](#input\_enable\_telemetry) | This variable controls whether or not telemetry is enabled for the module.<br>For more information see https://aka.ms/avm/telemetryinfo.<br>If it is set to false, then no telemetry will be collected. | `bool` | `true` | no |
+| <a name="input_rg_location"></a> [rg\_location](#input\_rg\_location) | This variable defines the Azure region where the resource group will be created.<br>The default value is "westus". | `string` | `"westus"` | no |
 
 ## Providers
 
@@ -84,13 +127,20 @@ object({
   })
 ```
 
+
 Default: `{}`
 
+
+| Name | Description |
+|------|-------------|
+| <a name="output_resource"></a> [resource](#output\_resource) | The ddos protection plan resource. |
+=======
 ### <a name="input_role_assignments"></a> [role\_assignments](#input\_role\_assignments)
 
 Description: n/a
 
 Type:
+
 
 ```hcl
 map(object({
@@ -104,6 +154,12 @@ map(object({
   }))
 ```
 
+
+| Name | Source | Version |
+|------|--------|---------|
+| <a name="module_DDOSPROTECTIONPLAN"></a> [DDOSPROTECTIONPLAN](#module\_DDOSPROTECTIONPLAN) | ../../ | n/a |
+| <a name="module_naming"></a> [naming](#module\_naming) | Azure/naming/azurerm | 0.3.0 |
+=======
 Default: `{}`
 
 ### <a name="input_tags"></a> [tags](#input\_tags)
@@ -125,6 +181,7 @@ Description: The ddos protection plan resource.
 ## Modules
 
 No modules.
+
 
 <!-- markdownlint-disable-next-line MD041 -->
 ## Data Collection

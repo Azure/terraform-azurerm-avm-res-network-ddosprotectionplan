@@ -38,3 +38,8 @@ terraform.rc
 
 # Ignore .idea/ directories
 .idea/*
+*tfplan*
+README-generated.md
+avm.tflint.hcl
+avm.tflint_example.hcl
+avmmakefile
