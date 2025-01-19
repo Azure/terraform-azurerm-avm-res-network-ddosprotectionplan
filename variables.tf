@@ -1,3 +1,21 @@
+# DDOS protection plan do not support diagnostic settings.
+
+variable "location" {
+  type        = string
+  description = "The Azure location where the resources will be deployed."
+}
+
+variable "name" {
+  type        = string
+  description = "the name of the ddos protection plan"
+}
+
+# This is required for most resource modules
+variable "resource_group_name" {
+  type        = string
+  description = "The resource group where the resources will be deployed."
+}
+
 variable "enable_telemetry" {
   type        = bool
   default     = true
@@ -8,36 +26,15 @@ If it is set to false, then no telemetry will be collected.
 DESCRIPTION
 }
 
-# This is required for most resource modules
-variable "resource_group_name" {
-  type        = string
-  description = "The resource group where the resources will be deployed."
-}
-
-variable "name" {
-  type        = string
-  description = "the name of the ddos protection plan"
-  }
-
-variable "location" {
-  type        = string
-  description = "The Azure location where the resources will be deployed."
-}
-
-variable "tags" {
-  type        = map(any)
-  description = "Map of tags to assign to the ddos protection plan."
-  default     = null
-}
-
 variable "lock" {
   type = object({
     name = optional(string, null)
     kind = optional(string, "None")
   })
-  description = "The lock level to apply to the ddos protection plan. Default is `None`. Possible values are `None`, `CanNotDelete`, and `ReadOnly`."
   default     = {}
+  description = "The lock level to apply to the ddos protection plan. Default is `None`. Possible values are `None`, `CanNotDelete`, and `ReadOnly`."
   nullable    = false
+
   validation {
     condition     = contains(["CanNotDelete", "ReadOnly", "None"], var.lock.kind)
     error_message = "The lock level must be one of: 'None', 'CanNotDelete', or 'ReadOnly'."
@@ -69,5 +66,8 @@ variable "role_assignments" {
 DESCRIPTION
 }
 
-# DDOS protection plan do not support diagnostic settings.
-
+variable "tags" {
+  type        = map(any)
+  default     = null
+  description = "Map of tags to assign to the ddos protection plan."
+}
