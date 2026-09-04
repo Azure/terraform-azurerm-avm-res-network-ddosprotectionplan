@@ -1,6 +1,3 @@
-
-
-
 terraform {
   required_version = ">= 1.0.0"
 
@@ -11,6 +8,7 @@ terraform {
     }
   }
 }
+
 provider "azurerm" {
   features {}
 }
@@ -36,4 +34,3 @@ module "ddosprotectionplan" {
   # source             = "Azure/avm-<res/ptn>-<name>/azurerm"
   enable_telemetry = var.enable_telemetry
 }
-
