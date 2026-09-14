@@ -11,7 +11,7 @@ terraform {
   required_providers {
     azurerm = {
       source  = "hashicorp/azurerm"
-      version = "~> 3.0"
+      version = "~> 5.1"
     }
   }
 }
@@ -22,7 +22,7 @@ provider "azurerm" {
 
 module "naming" {
   source  = "Azure/naming/azurerm"
-  version = "0.3.0"
+  version = "0.4.3"
 }
 
 # This is required for resource modules
@@ -50,7 +50,7 @@ The following requirements are needed by this module:
 
 - <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.0.0)
 
-- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 3.0)
+- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 5.1)
 
 ## Resources
 
@@ -117,7 +117,7 @@ Version:
 
 Source: Azure/naming/azurerm
 
-Version: 0.3.0
+Version: 0.4.3
 
 <!-- markdownlint-disable-next-line MD041 -->
 ## Data Collection
