@@ -1,0 +1,11 @@
+{
+  "$schema": "https://raw.githubusercontent.com/Azure/azure-verified-modules-tools/main/src/Avm.Authoring/Resources/Schemas/v1/avm-module-metadata.schema.json",
+  "moduleDisplayName": "DDoS Protection",
+  "moduleDescription": "AVM Resource Module for DDoS Protection",
+  "canonicalType": "Microsoft.Network/ddosProtectionPlans",
+  "owners": [
+    "sitarant",
+    "jtracey93"
+  ],
+  "telemetryIdPrefix": "46d3xtrf.res.cba9bdd"
+}
