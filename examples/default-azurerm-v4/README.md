@@ -39,7 +39,7 @@ module "ddosprotectionplan" {
   name                = module.naming.network_ddos_protection_plan.name_unique
   resource_group_name = azurerm_resource_group.this.name
   # source             = "Azure/avm-<res/ptn>-<name>/azurerm"
-  enable_telemetry = false
+  enable_telemetry = var.enable_telemetry
 }
 ```
 
@@ -84,7 +84,7 @@ If it is set to false, then no telemetry will be collected.
 
 Type: `bool`
 
-Default: `true`
+Default: `false`
 
 ### <a name="input_rg_location"></a> [rg\_location](#input\_rg\_location)
 
