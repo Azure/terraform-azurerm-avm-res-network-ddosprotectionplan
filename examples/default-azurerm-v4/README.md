@@ -22,7 +22,7 @@ provider "azurerm" {
 
 module "naming" {
   source  = "Azure/naming/azurerm"
-  version = "0.3.0"
+  version = "0.4.4"
 }
 
 # This is required for resource modules
@@ -117,7 +117,7 @@ Version:
 
 Source: Azure/naming/azurerm
 
-Version: 0.3.0
+Version: 0.4.4
 
 <!-- markdownlint-disable-next-line MD041 -->
 ## Data Collection
