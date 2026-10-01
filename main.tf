@@ -1,28 +1,82 @@
-resource "azurerm_network_ddos_protection_plan" "this" {
-  location            = var.location
-  name                = var.name
-  resource_group_name = var.resource_group_name
-  tags                = var.tags
+resource "azapi_resource" "this" {
+  location  = var.location
+  name      = var.name
+  parent_id = var.parent_id
+  type      = var.resource_types.network_ddos_protection_plans
+  body = {
+    properties = {}
+  }
+  create_headers      = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+  delete_headers      = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+  ignore_body_changes = length(var.ignore_body_changes.network_ddos_protection_plans) > 0 ? var.ignore_body_changes.network_ddos_protection_plans : null
+  read_headers        = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+  response_export_values = {
+    id   = "id"
+    name = "name"
+    type = "type"
+  }
+  retry          = var.retry
+  tags           = var.tags
+  update_headers = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+
+  timeouts {
+    create = var.timeouts.network_ddos_protection_plans.create
+    delete = var.timeouts.network_ddos_protection_plans.delete
+    read   = var.timeouts.network_ddos_protection_plans.read
+    update = var.timeouts.network_ddos_protection_plans.update
+  }
 }
 
-resource "azurerm_management_lock" "this" {
+module "avm_interfaces" {
+  source  = "Azure/avm-utl-interfaces/azure"
+  version = "0.6.0"
+
+  enable_telemetry                          = var.enable_telemetry
+  lock                                      = var.lock
+  role_assignment_definition_lookup_enabled = true
+  role_assignment_definition_scope          = azapi_resource.this.id
+  role_assignments                          = var.role_assignments
+}
+
+resource "azapi_resource" "role_assignments" {
+  for_each = module.avm_interfaces.role_assignments_azapi
+
+  name           = each.value.name
+  parent_id      = azapi_resource.this.id
+  type           = each.value.type
+  body           = each.value.body
+  create_headers = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+  delete_headers = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+  read_headers   = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+  response_export_values = {
+    id               = "id"
+    name             = "name"
+    principalId      = "properties.principalId"
+    principalType    = "properties.principalType"
+    roleDefinitionId = "properties.roleDefinitionId"
+    scope            = "properties.scope"
+    type             = "type"
+  }
+  update_headers = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+}
+
+resource "azapi_resource" "lock" {
   count = var.lock != null ? 1 : 0
 
-  lock_level = var.lock.kind
-  name       = coalesce(var.lock.name, "lock-${var.lock.kind}")
-  scope      = azurerm_network_ddos_protection_plan.this.id
-  notes      = var.lock.kind == "CanNotDelete" ? "Cannot delete the resource or its child resources." : "Cannot delete or modify the resource or its child resources."
+  name           = coalesce(var.lock.name, "lock-${var.lock.kind}")
+  parent_id      = azapi_resource.this.id
+  type           = module.avm_interfaces.lock_azapi.type
+  body           = module.avm_interfaces.lock_azapi.body
+  create_headers = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+  delete_headers = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+  read_headers   = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+  update_headers = var.enable_telemetry ? { "User-Agent" : local.avm_azapi_header } : null
+
+  depends_on = [time_sleep.wait_for_resource_destroy]
 }
 
-resource "azurerm_role_assignment" "this" {
-  for_each = var.role_assignments
+resource "time_sleep" "wait_for_resource_destroy" {
+  destroy_duration = "20s"
 
-  principal_id                           = each.value.principal_id
-  scope                                  = azurerm_network_ddos_protection_plan.this.id
-  condition                              = each.value.condition
-  condition_version                      = each.value.condition_version
-  delegated_managed_identity_resource_id = each.value.delegated_managed_identity_resource_id
-  role_definition_id                     = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? each.value.role_definition_id_or_name : null
-  role_definition_name                   = strcontains(lower(each.value.role_definition_id_or_name), lower(local.role_definition_resource_substring)) ? null : each.value.role_definition_id_or_name
-  skip_service_principal_aad_check       = each.value.skip_service_principal_aad_check
+  depends_on = [azapi_resource.this]
 }

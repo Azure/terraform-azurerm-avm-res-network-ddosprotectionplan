@@ -9,15 +9,7 @@ terraform {
   required_version = ">= 1.0.0"
 
   required_providers {
-    azurerm = {
-      source  = "hashicorp/azurerm"
-      version = "~> 4.0"
-    }
   }
-}
-
-provider "azurerm" {
-  features {}
 }
 
 module "naming" {
@@ -25,19 +17,22 @@ module "naming" {
   version = "0.3.0"
 }
 
-# This is required for resource modules
-resource "azurerm_resource_group" "this" {
-  location = var.rg_location
-  name     = module.naming.resource_group.name_unique
+module "resource_group" {
+  source  = "Azure/avm-res-resources-resourcegroup/azurerm"
+  version = "0.4.0"
+
+  location         = var.rg_location
+  name             = module.naming.resource_group.name_unique
+  enable_telemetry = var.enable_telemetry
 }
 
 # This is the module call
 module "ddosprotectionplan" {
   source = "../../"
 
-  location            = var.ddos_plan_location
-  name                = module.naming.network_ddos_protection_plan.name_unique
-  resource_group_name = azurerm_resource_group.this.name
+  location  = var.ddos_plan_location
+  name      = module.naming.network_ddos_protection_plan.name_unique
+  parent_id = module.resource_group.resource_id
   # source             = "Azure/avm-<res/ptn>-<name>/azurerm"
   enable_telemetry = var.enable_telemetry
 }
@@ -50,13 +45,9 @@ The following requirements are needed by this module:
 
 - <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.0.0)
 
-- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (~> 4.0)
-
 ## Resources
 
-The following resources are used by this module:
-
-- [azurerm_resource_group.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/resource_group) (resource)
+No resources.
 
 <!-- markdownlint-disable MD013 -->
 ## Required Inputs
@@ -118,6 +109,12 @@ Version:
 Source: Azure/naming/azurerm
 
 Version: 0.3.0
+
+### <a name="module_resource_group"></a> [resource\_group](#module\_resource\_group)
+
+Source: Azure/avm-res-resources-resourcegroup/azurerm
+
+Version: 0.4.0
 
 <!-- markdownlint-disable-next-line MD041 -->
 ## Data Collection
