@@ -4,16 +4,40 @@
 
 Module to enable DDoS protection plan in Azure
 
+> [!WARNING]
+> A DDoS Network Protection plan carries a flat monthly charge, prorated by the hour, from the moment the plan exists - whether or not any virtual network is associated with it. See the [Azure DDoS Protection pricing page](https://azure.microsoft.com/pricing/details/ddos-protection/) for the current rate before deploying one for testing.
+
+## Upgrading from v0.3.0 and earlier
+
+This release migrates the module from the `azurerm` provider to `azapi`. The module keeps the same
+inputs and the same resource addresses, so in the normal case a consumer only bumps the module
+version - the in-module `moved` blocks convert the existing state rows in place, with no destroy and
+no replacement.
+
+What you need to know:
+
+- **Plan with a normal refresh.** `terraform plan -refresh=false`, and any sovereign cloud, hit
+  [azapi#1227](https://github.com/Azure/terraform-provider-azapi/issues/1227) and plan a *replace*
+  instead of a move. Those cases need a `removed` + `import` upgrade path rather than `moved`.
+- **Keep an `azurerm` provider block in the root module for the upgrade apply.** Terraform must be
+  able to read the pre-migration state rows before the `moved` blocks convert them. The block can be
+  removed afterwards. The `default` example shows this, commented out.
+- **The `resource` output changes shape.** It is now the `azapi_resource` object: `id`, `name`,
+  `location`, `parent_id`, `type`, `tags` and `body` are present; `resource_group_name` and
+  `virtual_network_ids` are not. `resource_id` and `name` are unchanged.
+- **Role assignments are not recreated.** The server-assigned role assignment GUID carried over by
+  the `moved` block is pinned with `lifecycle.ignore_changes = [name]`, so existing assignments
+  survive the upgrade untouched.
+- **Minimum Terraform is now 1.9.** Cross-provider `moved` blocks require 1.8 or later.
+
 <!-- markdownlint-disable MD033 -->
 ## Requirements
 
 The following requirements are needed by this module:
 
-- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.6.0)
+- <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) (>= 1.9, < 2.0)
 
 - <a name="requirement_azapi"></a> [azapi](#requirement\_azapi) (~> 2.12)
-
-- <a name="requirement_azurerm"></a> [azurerm](#requirement\_azurerm) (>= 3.116, < 5.0)
 
 - <a name="requirement_modtm"></a> [modtm](#requirement\_modtm) (~> 0.3)
 
@@ -23,11 +47,12 @@ The following requirements are needed by this module:
 
 The following resources are used by this module:
 
-- [azurerm_management_lock.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/management_lock) (resource)
-- [azurerm_network_ddos_protection_plan.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/network_ddos_protection_plan) (resource)
-- [azurerm_role_assignment.this](https://registry.terraform.io/providers/hashicorp/azurerm/latest/docs/resources/role_assignment) (resource)
+- [azapi_resource.lock](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
+- [azapi_resource.role_assignments](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
+- [azapi_resource.this](https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource) (resource)
 - [modtm_telemetry.telemetry](https://registry.terraform.io/providers/azure/modtm/latest/docs/resources/telemetry) (resource)
 - [random_uuid.telemetry](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/uuid) (resource)
+- [azapi_client_config.current](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/client_config) (data source)
 - [azapi_client_config.telemetry](https://registry.terraform.io/providers/Azure/azapi/latest/docs/data-sources/client_config) (data source)
 - [modtm_module_source.telemetry](https://registry.terraform.io/providers/azure/modtm/latest/docs/data-sources/module_source) (data source)
 
@@ -68,28 +93,99 @@ Type: `bool`
 
 Default: `true`
 
+### <a name="input_ignore_body_changes"></a> [ignore\_body\_changes](#input\_ignore\_body\_changes)
+
+Description: (Optional) Body property paths whose changes the `azapi` provider ignores after creation, letting an out-of-band controller own those properties without producing perpetual `terraform plan` drift.
+
+- `authorization_locks` - (Optional) Ignored body paths for the management lock, in dot notation relative to the request body, for example `["properties.notes"]`. Default `[]`.
+- `authorization_role_assignments` - (Optional) Ignored body paths for the role assignments, in dot notation relative to the request body, for example `["properties.description"]`. Default `[]`.
+- `network_ddos_protection_plans` - (Optional) Ignored body paths for the DDoS protection plan. Default `[]`.
+
+While a path is ignored, configuration changes at that path are no longer sent to Azure. The value is write-only provider state, so a change only takes effect after an `apply`, and supplying a non-empty list requires Terraform 1.11 or later.
+
+> Note: every property of `Microsoft.Network/ddosProtectionPlans` is read-only, so the module sends an empty `properties` object and `network_ddos_protection_plans` is close to inert. It is kept for shape-consistency with the sibling modules.
+
+Type:
+
+```hcl
+object({
+    authorization_locks            = optional(list(string), [])
+    authorization_role_assignments = optional(list(string), [])
+    network_ddos_protection_plans  = optional(list(string), [])
+  })
+```
+
+Default: `{}`
+
 ### <a name="input_lock"></a> [lock](#input\_lock)
 
 Description: Controls the Resource Lock configuration for this resource. The following properties can be specified:
 
 - `kind` - (Required) The type of lock. Possible values are `\"CanNotDelete\"` and `\"ReadOnly\"`.
 - `name` - (Optional) The name of the lock. If not specified, a name will be generated based on the `kind` value. Changing this forces the creation of a new resource.
+- `notes` - (Optional) Notes about the lock. This value maps to `Microsoft.Authorization/locks.properties.notes`. When left `null` the module keeps the note text the pre-migration implementation wrote, so an existing lock is not modified on upgrade.
 
 Type:
 
 ```hcl
 object({
-    kind = string
-    name = optional(string, null)
+    kind  = string
+    name  = optional(string, null)
+    notes = optional(string, null)
   })
 ```
 
 Default: `null`
 
+### <a name="input_resource_types"></a> [resource\_types](#input\_resource\_types)
+
+Description: (Optional) The Azure resource type and API version used for each resource created by this module.
+
+- `authorization_locks` - (Optional) The type and API version of the management lock. Default `Microsoft.Authorization/locks@2020-05-01`.
+- `authorization_role_assignments` - (Optional) The type and API version of the role assignments. Default `Microsoft.Authorization/roleAssignments@2022-04-01`.
+- `network_ddos_protection_plans` - (Optional) The type and API version of the DDoS protection plan. Default `Microsoft.Network/ddosProtectionPlans@2025-07-01`.
+
+> Note: `network_ddos_protection_plans` must stay on the newest `Microsoft.Network` API version that the resolved `azapi` provider knows about. `moved` state conversion stamps the type on the migrated state row using that newest version, so a lower default would show up as a type change on the first plan after an upgrade. `2025-07-01` is the newest at azapi 2.13.0.
+
+Type:
+
+```hcl
+object({
+    authorization_locks            = optional(string, "Microsoft.Authorization/locks@2020-05-01")
+    authorization_role_assignments = optional(string, "Microsoft.Authorization/roleAssignments@2022-04-01")
+    network_ddos_protection_plans  = optional(string, "Microsoft.Network/ddosProtectionPlans@2025-07-01")
+  })
+```
+
+Default: `{}`
+
+### <a name="input_retry"></a> [retry](#input\_retry)
+
+Description: (Optional) Retry configuration applied to every `azapi_resource` in this module - the DDoS protection plan, the management lock and the role assignments.
+
+- `error_message_regex` - (Optional) Regular expressions matched against the error message; a match makes the request retry.
+- `interval_seconds` - (Optional) Base seconds between retries.
+- `max_interval_seconds` - (Optional) Maximum seconds between retries.
+
+The default preserves behaviour the pre-migration `azurerm_role_assignment` implemented in provider code rather than in configuration (`role_assignment_resource.go` L382-386 at provider v4.81.0): it retried a `400 PrincipalNotFound` while the principal replicated through Entra ID, and a `403 LinkedAuthorizationFailed` in the cross-tenant delegated-identity case. AzAPI has no equivalent built-in, so the same two conditions are expressed here.
+
+Type:
+
+```hcl
+object({
+    error_message_regex  = optional(list(string), ["PrincipalNotFound", "LinkedAuthorizationFailed"])
+    interval_seconds     = optional(number, 10)
+    max_interval_seconds = optional(number, 180)
+  })
+```
+
+Default: `{}`
+
 ### <a name="input_role_assignments"></a> [role\_assignments](#input\_role\_assignments)
 
 Description: A map of role assignments to create on the <RESOURCE>. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
 
+- `name` - (Optional) The name of the role assignment. Must be a valid GUID. If not set, a random UUID is generated. Changing this forces the creation of a new resource.
 - `role_definition_id_or_name` - The ID or name of the role definition to assign to the principal.
 - `principal_id` - The ID of the principal to assign the role to.
 - `description` - (Optional) The description of the role assignment.
@@ -99,12 +195,17 @@ Description: A map of role assignments to create on the <RESOURCE>. The map key 
 - `delegated_managed_identity_resource_id` - (Optional) The delegated Azure Resource Id which contains a Managed Identity. Changing this forces a new resource to be created. This field is only used in cross-tenant scenario.
 - `principal_type` - (Optional) The type of the `principal_id`. Possible values are `User`, `Group` and `ServicePrincipal`. It is necessary to explicitly set this attribute when creating role assignments if the principal creating the assignment is constrained by ABAC rules that filters on the PrincipalType attribute.
 
-> Note: only set `skip_service_principal_aad_check` to true if you are assigning a role to a service principal.
+> Note: only set `skip_service_principal_aad_check` to true if you are assigning a role to a service principal. This field has no representation in the ARM request body; the pre-migration implementation used it to control a provider-side retry, which `retry.error_message_regex` now covers.
+
+> Note: `description` and `principal_type` were accepted but never sent by the pre-migration implementation. They are sent now, so setting either produces a one-off in-place update on upgrade. When you leave them unset they are omitted from the request body entirely (the implementation sets `ignore_null_property = true`), which matches the pre-migration behaviour and keeps the plan free of the perpetual `principalType` diff Azure would otherwise cause by always returning a derived value.
+
+> Note: `name` only takes effect when the role assignment is first created. The implementation carries `lifecycle.ignore_changes = [name]` so that the server-assigned GUID of an assignment created before the AzAPI migration survives the upgrade instead of being replaced; as a side effect, changing `name` on an existing assignment has no effect.
 
 Type:
 
 ```hcl
 map(object({
+    name                                   = optional(string, null)
     role_definition_id_or_name             = string
     principal_id                           = string
     description                            = optional(string, null)
@@ -126,6 +227,32 @@ Type: `map(string)`
 
 Default: `null`
 
+### <a name="input_timeouts"></a> [timeouts](#input\_timeouts)
+
+Description: (Optional) Timeouts applied to every `azapi_resource` in this module - the DDoS protection plan, the management lock and the role assignments.
+
+Each value must be parsable as a Go duration, for example `"30s"`, `"5m"` or `"1h30m"`.
+
+- `create` - (Optional) Timeout for create operations. Default `30m`.
+- `delete` - (Optional) Timeout for delete operations. Default `30m`.
+- `read` - (Optional) Timeout for read operations. Default `5m`.
+- `update` - (Optional) Timeout for update operations. Default `30m`.
+
+The defaults are the pre-migration `azurerm_network_ddos_protection_plan` per-resource defaults at provider v4.81.0 (`network_ddos_protection_plan_resource.go` L46-51), so the migration does not change how long an operation is allowed to run. Set the variable itself to `null` to fall back to the AzAPI provider defaults instead.
+
+Type:
+
+```hcl
+object({
+    create = optional(string, "30m")
+    delete = optional(string, "30m")
+    read   = optional(string, "5m")
+    update = optional(string, "30m")
+  })
+```
+
+Default: `{}`
+
 ## Outputs
 
 The following outputs are exported:
@@ -138,13 +265,21 @@ Description: The name of the ddos protection plan resource.
 
 Description: The ddos protection plan resource.
 
+This is a discrete projection of `azapi_resource.this`, not the whole resource object: `id`, `location`, `name`, `parent_id`, `tags` and `type`. The former `azurerm_network_ddos_protection_plan` attributes `resource_group_name` and `virtual_network_ids` are not available. Read the list of protected virtual networks from the virtual networks themselves rather than from the plan - the back-reference is populated by Azure across subscriptions and state files, so it is not exported here.
+
 ### <a name="output_resource_id"></a> [resource\_id](#output\_resource\_id)
 
 Description: The ID of the ddos protection plan resource.
 
 ## Modules
 
-No modules.
+The following Modules are called:
+
+### <a name="module_interfaces"></a> [interfaces](#module\_interfaces)
+
+Source: Azure/avm-utl-interfaces/azure
+
+Version: 0.7.0
 
 <!-- markdownlint-disable-next-line MD041 -->
 ## Data Collection
