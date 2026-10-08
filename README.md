@@ -19,13 +19,61 @@ What you need to know:
 - **Keep an `azurerm` provider block in the root module for the upgrade apply.** Terraform must be
   able to read the pre-migration state rows before the `moved` blocks convert them. The block can be
   removed afterwards. The `default` example shows this, commented out.
-- **The `resource` output changes shape.** It is now the `azapi_resource` object: `id`, `name`,
-  `location`, `parent_id`, `type`, `tags` and `body` are present; `resource_group_name` and
-  `virtual_network_ids` are not. `resource_id` and `name` are unchanged.
+- **The `resource` output changes shape.** It is a six-field projection containing only `id`,
+  `location`, `name`, `parent_id`, `tags` and `type`. It is not the whole `azapi_resource` object.
+  `body`, `resource_group_name` and `virtual_network_ids` are not available. `resource_id` and
+  `name` are unchanged.
 - **Role assignments are not recreated.** The server-assigned role assignment GUID carried over by
   the `moved` block is pinned with `lifecycle.ignore_changes = [name]`, so existing assignments
   survive the upgrade untouched.
 - **Minimum Terraform is now 1.9.** Cross-provider `moved` blocks require 1.8 or later.
+
+## Updating role assignments and locks
+
+An existing role assignment's principal, role definition and delegated managed identity are
+immutable. Editing those fields under the same map key fails the plan with a staged replacement
+message. The module retains the immutable values in state and checks them against the requested
+values; it does not silently ignore the edit or send an invalid in-place PUT.
+Automatic replacement is deliberately unsupported because the adopted GUID must remain stable
+and a `CanNotDelete` lock blocks role-assignment deletion.
+
+To replace an assignment, review and apply each stage separately:
+
+1. Keep the old assignment unchanged. Set this module's `lock` to `null` and apply. Have the
+   owners of any inherited resource-group or subscription locks remove those locks too. Confirm
+   that lock removal has propagated before proceeding.
+2. Remove the old entry from `role_assignments` and apply. Review the plan to confirm it deletes
+   only the intended assignment. This temporarily revokes its access, so use a separate
+   authorized identity to perform the procedure.
+3. Add the replacement assignment and apply with locks still removed. A new map key with
+   `name = null` generates a fresh GUID. Never reuse the previous explicit GUID for a different
+   principal or role.
+4. Restore the desired locks in a separate apply after the new assignment is present.
+
+Use the same staged unlock before deleting an assignment while keeping the DDoS plan. A
+`ReadOnly` lock also blocks mutable updates and new assignments, so remove it in a separate
+apply before changing conditions or descriptions. The module creates its lock after its role
+assignments and removes it first during a full destroy. This graph order does not remove an
+unchanged lock during an ordinary update, and it cannot remove inherited locks.
+
+`condition` and `condition_version` remain mutable. Setting `condition` to `null`, omitting it,
+or setting it to `""` sends both ARM condition fields as empty strings to
+[remove the condition](https://learn.microsoft.com/azure/role-based-access-control/conditions-role-assignments-powershell#delete-a-condition).
+An omitted `principal_type` remains null in configuration and is omitted from the request by
+`ignore_null_property`, avoiding perpetual diffs against Azure's derived principal type.
+With the AzAPI provider's default `ignore_no_op_changes = true`, already absent conditions do not
+require a PUT merely to normalize null to empty. Review the upgrade plan if you disable that
+provider setting. Consumer-selected `ignore_body_changes` on condition paths deliberately
+prevents condition changes from being sent until those paths are removed and applied.
+
+## Location changes
+
+Cross-region relocation of an existing DDoS protection plan is not supported. Azure rejects an
+in-place cross-region location update; do not treat a changed `location` as an ordinary mutable
+update. Review the provider's plan and stop before an unintended replacement. Deploy a separate
+plan in the destination region and migrate its virtual network associations through their owning
+configurations instead. This is a migration limitation, not a promise of AzureRM's location
+replacement behavior.
 
 <!-- markdownlint-disable MD033 -->
 ## Requirements
@@ -164,13 +212,13 @@ Description: (Optional) Retry configuration applied to every `azapi_resource` in
 - `interval_seconds` - (Optional) Base seconds between retries.
 - `max_interval_seconds` - (Optional) Maximum seconds between retries.
 
-The default preserves behaviour the pre-migration `azurerm_role_assignment` implemented in provider code rather than in configuration (`role_assignment_resource.go` L382-386 at provider v4.81.0): it retried a `400 PrincipalNotFound` while the principal replicated through Entra ID, and a `403 LinkedAuthorizationFailed` in the cross-tenant delegated-identity case. AzAPI has no equivalent built-in, so the same two conditions are expressed here.
+The default preserves behaviour the pre-migration `azurerm_role_assignment` implemented in provider code rather than in configuration (`role_assignment_resource.go` L382-386 at provider v4.81.0): it retried a `400 PrincipalNotFound` while the principal replicated through Entra ID, and a `403 LinkedAuthorizationFailed` in the cross-tenant delegated-identity case. AzAPI has no equivalent built-in, so the same two conditions are expressed here. `ScopeLocked` additionally retries propagation delays after a scope lock has been removed; it cannot bypass an active or inherited lock.
 
 Type:
 
 ```hcl
 object({
-    error_message_regex  = optional(list(string), ["PrincipalNotFound", "LinkedAuthorizationFailed"])
+    error_message_regex  = optional(list(string), ["PrincipalNotFound", "LinkedAuthorizationFailed", "ScopeLocked"])
     interval_seconds     = optional(number, 10)
     max_interval_seconds = optional(number, 180)
   })
@@ -197,6 +245,10 @@ Description: A map of role assignments to create on the <RESOURCE>. The map key 
 > Note: `description` and `principal_type` were accepted but never sent by the pre-migration implementation. They are sent now, so setting either produces a one-off in-place update on upgrade. When you leave them unset they are omitted from the request body entirely (the implementation sets `ignore_null_property = true`), which matches the pre-migration behaviour and keeps the plan free of the perpetual `principalType` diff Azure would otherwise cause by always returning a derived value.
 
 > Note: `name` only takes effect when the role assignment is first created. The implementation carries `lifecycle.ignore_changes = [name]` so that the server-assigned GUID of an assignment created before the AzAPI migration survives the upgrade instead of being replaced; as a side effect, changing `name` on an existing assignment has no effect.
+
+> Note: edits to an existing assignment's principal, role definition or delegated identity under the same map key fail the plan. Automatic replacement is unsupported. Remove scope locks in a separate apply, remove the old assignment and apply, then create the replacement with a fresh GUID and restore locks afterwards. See the upgrade guide for the complete staged procedure and its temporary access gap.
+
+> Note: a null, omitted or empty `condition` explicitly clears both ARM condition fields using empty strings. Unset `principal_type` remains omitted from requests. A `ReadOnly` lock must be removed in a separate apply before mutable updates.
 
 Type:
 

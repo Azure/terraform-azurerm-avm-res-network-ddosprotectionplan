@@ -122,6 +122,7 @@ resource "azapi_resource" "lock" {
   lifecycle {
     ignore_changes = [response_export_values]
   }
+  depends_on = [azapi_resource.role_assignments]
 }
 
 # =============================================================================
@@ -158,8 +159,8 @@ resource "azapi_resource" "lock" {
 # reason. `ignore_body_changes` is deliberately NOT used for this: it would
 # require Terraform >= 1.11 (this module's floor is >= 1.9) and it suppresses
 # real drift at the ignored path rather than fixing the send.
-# The trade-off is that a property cannot be explicitly un-set by writing
-# `null`; on roleAssignments nothing is un-settable that way anyway.
+# Conditions use empty strings to explicitly clear them while null optional
+# fields, including the derived principalType, remain omitted.
 #
 # PARITY NOTES, both plan-visible as in-place updates and neither a replacement:
 #   * `description` and `principal_type` were accepted by the variable but never
@@ -173,12 +174,22 @@ resource "azapi_resource" "lock" {
 resource "azapi_resource" "role_assignments" {
   for_each = module.interfaces.role_assignments_azapi
 
-  name                   = each.value.name
-  parent_id              = azapi_resource.this.id
-  type                   = var.resource_types.authorization_role_assignments
-  body                   = each.value.body
-  ignore_body_changes    = length(var.ignore_body_changes.authorization_role_assignments) > 0 ? var.ignore_body_changes.authorization_role_assignments : null
-  ignore_null_property   = true
+  name      = each.value.name
+  parent_id = azapi_resource.this.id
+  type      = var.resource_types.authorization_role_assignments
+  body = {
+    properties = merge(each.value.body.properties, {
+      condition        = each.value.body.properties.condition == null ? "" : each.value.body.properties.condition
+      conditionVersion = each.value.body.properties.condition == null || each.value.body.properties.condition == "" ? "" : each.value.body.properties.conditionVersion
+    })
+  }
+  ignore_body_changes  = length(var.ignore_body_changes.authorization_role_assignments) > 0 ? var.ignore_body_changes.authorization_role_assignments : null
+  ignore_null_property = true
+  replace_triggers_refs = [
+    "properties.principalId",
+    "properties.roleDefinitionId",
+    "properties.delegatedManagedIdentityResourceId",
+  ]
   response_export_values = []
   retry                  = var.retry
 
@@ -194,7 +205,23 @@ resource "azapi_resource" "role_assignments" {
   }
 
   lifecycle {
-    ignore_changes = [name, response_export_values]
+    # Retain immutable state for the check below instead of sending an invalid PUT.
+    ignore_changes = [
+      name,
+      response_export_values,
+      body.properties.principalId,
+      body.properties.roleDefinitionId,
+      body.properties.delegatedManagedIdentityResourceId,
+    ]
+
+    postcondition {
+      condition = (
+        lower(self.body.properties.principalId) == lower(each.value.body.properties.principalId) &&
+        lower(self.body.properties.roleDefinitionId) == lower(each.value.body.properties.roleDefinitionId) &&
+        lower(coalesce(try(self.body.properties.delegatedManagedIdentityResourceId, null), "-")) == lower(coalesce(each.value.body.properties.delegatedManagedIdentityResourceId, "-"))
+      )
+      error_message = "An existing role assignment's principal, role definition or delegated identity cannot be changed under the same map key. First remove any scope locks in a separate apply, then remove this assignment and apply, then add the new assignment with a fresh GUID and apply. See the module upgrade guide. Automatic replacement is intentionally unsupported."
+    }
   }
 }
 

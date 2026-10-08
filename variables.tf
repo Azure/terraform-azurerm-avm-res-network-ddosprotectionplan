@@ -113,7 +113,7 @@ DESCRIPTION
 
 variable "retry" {
   type = object({
-    error_message_regex  = optional(list(string), ["PrincipalNotFound", "LinkedAuthorizationFailed"])
+    error_message_regex  = optional(list(string), ["PrincipalNotFound", "LinkedAuthorizationFailed", "ScopeLocked"])
     interval_seconds     = optional(number, 10)
     max_interval_seconds = optional(number, 180)
   })
@@ -125,7 +125,7 @@ variable "retry" {
 - `interval_seconds` - (Optional) Base seconds between retries.
 - `max_interval_seconds` - (Optional) Maximum seconds between retries.
 
-The default preserves behaviour the pre-migration `azurerm_role_assignment` implemented in provider code rather than in configuration (`role_assignment_resource.go` L382-386 at provider v4.81.0): it retried a `400 PrincipalNotFound` while the principal replicated through Entra ID, and a `403 LinkedAuthorizationFailed` in the cross-tenant delegated-identity case. AzAPI has no equivalent built-in, so the same two conditions are expressed here.
+The default preserves behaviour the pre-migration `azurerm_role_assignment` implemented in provider code rather than in configuration (`role_assignment_resource.go` L382-386 at provider v4.81.0): it retried a `400 PrincipalNotFound` while the principal replicated through Entra ID, and a `403 LinkedAuthorizationFailed` in the cross-tenant delegated-identity case. AzAPI has no equivalent built-in, so the same two conditions are expressed here. `ScopeLocked` additionally retries propagation delays after a scope lock has been removed; it cannot bypass an active or inherited lock.
 DESCRIPTION
 }
 
@@ -160,6 +160,10 @@ A map of role assignments to create on the <RESOURCE>. The map key is deliberate
 > Note: `description` and `principal_type` were accepted but never sent by the pre-migration implementation. They are sent now, so setting either produces a one-off in-place update on upgrade. When you leave them unset they are omitted from the request body entirely (the implementation sets `ignore_null_property = true`), which matches the pre-migration behaviour and keeps the plan free of the perpetual `principalType` diff Azure would otherwise cause by always returning a derived value.
 
 > Note: `name` only takes effect when the role assignment is first created. The implementation carries `lifecycle.ignore_changes = [name]` so that the server-assigned GUID of an assignment created before the AzAPI migration survives the upgrade instead of being replaced; as a side effect, changing `name` on an existing assignment has no effect.
+
+> Note: edits to an existing assignment's principal, role definition or delegated identity under the same map key fail the plan. Automatic replacement is unsupported. Remove scope locks in a separate apply, remove the old assignment and apply, then create the replacement with a fresh GUID and restore locks afterwards. See the upgrade guide for the complete staged procedure and its temporary access gap.
+
+> Note: a null, omitted or empty `condition` explicitly clears both ARM condition fields using empty strings. Unset `principal_type` remains omitted from requests. A `ReadOnly` lock must be removed in a separate apply before mutable updates.
 DESCRIPTION
   nullable    = false
 
