@@ -140,27 +140,10 @@ resource "azapi_resource" "lock" {
 # making consumers pass anything. The trade-off is that changing `name` on an
 # already-created assignment has no effect; it is only honoured at create time.
 #
-# `ignore_null_property = true` is REQUIRED FOR CONVERGENCE, not a nicety.
-# `avm-utl-interfaces` 0.7.0 emits every optional role-assignment field as an
-# EXPLICIT key in `body.properties` (`locals.role_assignments.tf` L8-25), so a
-# caller who leaves `principal_type` unset still sends
-# `properties.principalType = null`. Azure ALWAYS derives and returns
-# `principalType` on a roleAssignments GET, the refresh writes `"User"` (or
-# `"ServicePrincipal"`, ...) back into `body` in state, and `null` can never win
-# against a value the API re-populates unconditionally. Without this flag every
-# `terraform plan` forever shows `principalType = "User" -> null` and every
-# `apply` issues a pointless PUT - a PERPETUAL DIFF on the DEFAULT code path,
-# which breaks drift detection and any `plan -detailed-exitcode` CI gate.
-# `ignore_null_property` drops null-valued config properties from both the
-# comparison and the request body, which is also exactly what the pre-migration
-# `azurerm_role_assignment` did (it omitted `principalType` from the PUT
-# whenever the practitioner had not set it). The sibling
-# `avm-res-network-dnsresolver` migration uses the same flag for the same
-# reason. `ignore_body_changes` is deliberately NOT used for this: it would
-# require Terraform >= 1.11 (this module's floor is >= 1.9) and it suppresses
-# real drift at the ignored path rather than fixing the send.
-# Conditions use empty strings to explicitly clear them while null optional
-# fields, including the derived principalType, remain omitted.
+# The utility emits optional nulls. Remove unset principalType because Azure
+# derives it, but retain condition nulls to clear them in PUT. A blanket
+# ignore_null_property would also suppress condition clearing. Keep the
+# delegated-identity key so lifecycle can retain and check its immutable state.
 #
 # PARITY NOTES, both plan-visible as in-place updates and neither a replacement:
 #   * `description` and `principal_type` were accepted by the variable but never
@@ -178,13 +161,15 @@ resource "azapi_resource" "role_assignments" {
   parent_id = azapi_resource.this.id
   type      = var.resource_types.authorization_role_assignments
   body = {
-    properties = merge(each.value.body.properties, {
-      condition        = each.value.body.properties.condition == null ? "" : each.value.body.properties.condition
-      conditionVersion = each.value.body.properties.condition == null || each.value.body.properties.condition == "" ? "" : each.value.body.properties.conditionVersion
+    properties = merge({
+      for key, value in each.value.body.properties : key => value if value != null || key == "delegatedManagedIdentityResourceId"
+      }, {
+      condition        = each.value.body.properties.condition == "" ? null : each.value.body.properties.condition
+      conditionVersion = each.value.body.properties.condition == null || each.value.body.properties.condition == "" ? null : each.value.body.properties.conditionVersion
     })
   }
   ignore_body_changes  = length(var.ignore_body_changes.authorization_role_assignments) > 0 ? var.ignore_body_changes.authorization_role_assignments : null
-  ignore_null_property = true
+  ignore_null_property = false
   replace_triggers_refs = [
     "properties.principalId",
     "properties.roleDefinitionId",

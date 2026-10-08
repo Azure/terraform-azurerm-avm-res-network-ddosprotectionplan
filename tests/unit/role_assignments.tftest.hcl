@@ -211,7 +211,7 @@ run "real_provider_plans_an_explicit_condition_clear" {
     }
   }
   assert {
-    condition     = azapi_resource.role_assignments["reader"].body.properties.condition == "" && azapi_resource.role_assignments["reader"].body.properties.conditionVersion == "" && azapi_resource.role_assignments["reader"].name == "11111111-1111-4111-8111-111111111111"
+    condition     = azapi_resource.role_assignments["reader"].body.properties.condition == null && azapi_resource.role_assignments["reader"].body.properties.conditionVersion == null && !azapi_resource.role_assignments["reader"].ignore_null_property && azapi_resource.role_assignments["reader"].name == "11111111-1111-4111-8111-111111111111"
     error_message = "AzAPI must plan an explicit condition clear without changing the adopted GUID."
   }
 }
@@ -231,11 +231,11 @@ run "condition_removed_with_explicit_null" {
     }
   }
   assert {
-    condition     = azapi_resource.role_assignments["reader"].body.properties.condition == "" && azapi_resource.role_assignments["reader"].body.properties.conditionVersion == ""
-    error_message = "Null must emit an explicit condition clear, not a null stripped by ignore_null_property."
+    condition     = azapi_resource.role_assignments["reader"].body.properties.condition == null && azapi_resource.role_assignments["reader"].body.properties.conditionVersion == null && !azapi_resource.role_assignments["reader"].ignore_null_property
+    error_message = "ARM requires a null condition reset preserved in the PUT, never conditionVersion = empty string."
   }
   assert {
-    condition     = azapi_resource.role_assignments["reader"].ignore_null_property && azapi_resource.role_assignments["reader"].body.properties.principalType == null
+    condition     = !contains(keys(azapi_resource.role_assignments["reader"].body.properties), "principalType")
     error_message = "Clearing conditions must not reintroduce the derived principalType perpetual diff."
   }
 }
@@ -244,7 +244,7 @@ run "condition_omitted_is_also_explicitly_cleared" {
   command = apply
 
   assert {
-    condition     = azapi_resource.role_assignments["reader"].body.properties.condition == "" && azapi_resource.role_assignments["reader"].body.properties.conditionVersion == ""
+    condition     = azapi_resource.role_assignments["reader"].body.properties.condition == null && azapi_resource.role_assignments["reader"].body.properties.conditionVersion == null && !azapi_resource.role_assignments["reader"].ignore_null_property
     error_message = "Omitting the condition must have the same clear semantics as explicit null."
   }
 }
@@ -265,7 +265,7 @@ run "empty_condition_clears_both_fields" {
     }
   }
   assert {
-    condition     = azapi_resource.role_assignments["reader"].body.properties.condition == "" && azapi_resource.role_assignments["reader"].body.properties.conditionVersion == ""
+    condition     = azapi_resource.role_assignments["reader"].body.properties.condition == null && azapi_resource.role_assignments["reader"].body.properties.conditionVersion == null && !azapi_resource.role_assignments["reader"].ignore_null_property
     error_message = "An empty condition must clear the syntax version too."
   }
 }

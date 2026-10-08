@@ -163,7 +163,7 @@ A map of role assignments to create on the <RESOURCE>. The map key is deliberate
 
 > Note: edits to an existing assignment's principal, role definition or delegated identity under the same map key fail the plan. Automatic replacement is unsupported. Remove scope locks in a separate apply, remove the old assignment and apply, then create the replacement with a fresh GUID and restore locks afterwards. See the upgrade guide for the complete staged procedure and its temporary access gap.
 
-> Note: a null, omitted or empty `condition` explicitly clears both ARM condition fields using empty strings. Unset `principal_type` remains omitted from requests. A `ReadOnly` lock must be removed in a separate apply before mutable updates.
+> Note: a null, omitted or empty `condition` explicitly clears both ARM condition fields using JSON nulls. ARM rejects an empty-string `conditionVersion`. Unset `principal_type` remains omitted from requests. A `ReadOnly` lock must be removed in a separate apply before mutable updates.
 DESCRIPTION
   nullable    = false
 

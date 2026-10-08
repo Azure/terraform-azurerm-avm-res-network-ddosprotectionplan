@@ -55,13 +55,12 @@ assignments and removes it first during a full destroy. This graph order does no
 unchanged lock during an ordinary update, and it cannot remove inherited locks.
 
 `condition` and `condition_version` remain mutable. Setting `condition` to `null`, omitting it,
-or setting it to `""` sends both ARM condition fields as empty strings to
+or setting it to `""` sends both ARM condition fields as explicit JSON nulls to
 [remove the condition](https://learn.microsoft.com/azure/role-based-access-control/conditions-role-assignments-powershell#delete-a-condition).
-An omitted `principal_type` remains null in configuration and is omitted from the request by
-`ignore_null_property`, avoiding perpetual diffs against Azure's derived principal type.
-With the AzAPI provider's default `ignore_no_op_changes = true`, already absent conditions do not
-require a PUT merely to normalize null to empty. Review the upgrade plan if you disable that
-provider setting. Consumer-selected `ignore_body_changes` on condition paths deliberately
+ARM does not accept an empty-string `conditionVersion`. The module preserves the reset nulls
+with `ignore_null_property = false`, but removes unset `principal_type` from the body before
+sending it, avoiding perpetual diffs against Azure's derived principal type.
+Consumer-selected `ignore_body_changes` on condition paths deliberately
 prevents condition changes from being sent until those paths are removed and applied.
 
 ## Location changes
