@@ -9,16 +9,13 @@ Module to enable DDoS protection plan in Azure
 
 ## Upgrading from v0.3.0 and earlier
 
-This release migrates the module from the `azurerm` provider to `azapi`. The module keeps the same
-inputs and the same resource addresses, so in the normal case a consumer only bumps the module
-version - the in-module `moved` blocks convert the existing state rows in place, with no destroy and
-no replacement.
+This release migrates the module from the `azurerm` provider to `azapi`. The in-module `moved` blocks
+map existing AzureRM state to the AzAPI resources. Review the upgrade plan before applying it.
 
 What you need to know:
 
-- **Plan with a normal refresh.** `terraform plan -refresh=false`, and any sovereign cloud, hit
-  [azapi#1227](https://github.com/Azure/terraform-provider-azapi/issues/1227) and plan a *replace*
-  instead of a move. Those cases need a `removed` + `import` upgrade path rather than `moved`.
+- **Plan with refresh enabled.** Use Terraform's default refresh when planning the upgrade. Review
+  the plan and stop if it shows an unexpected replacement of the DDoS plan or its role assignments.
 - **Keep an `azurerm` provider block in the root module for the upgrade apply.** Terraform must be
   able to read the pre-migration state rows before the `moved` blocks convert them. The block can be
   removed afterwards. The `default` example shows this, commented out.
