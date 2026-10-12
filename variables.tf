@@ -12,10 +12,14 @@ variable "name" {
   description = "the name of the ddos protection plan"
 }
 
-# This is required for most resource modules
-variable "resource_group_name" {
+variable "parent_id" {
   type        = string
-  description = "The resource group where the resources will be deployed."
+  description = "The Azure resource ID of the parent resource group, in the form `/subscriptions/{subscription_id}/resourceGroups/{resource_group_name}`."
+
+  validation {
+    condition     = can(provider::azapi::parse_resource_id("Microsoft.Resources/resourceGroups", var.parent_id))
+    error_message = "The parent_id must be a valid Azure resource group resource ID."
+  }
 }
 
 variable "enable_telemetry" {
@@ -26,6 +30,15 @@ This variable controls whether or not telemetry is enabled for the module.
 For more information see <https://aka.ms/avm/telemetryinfo>.
 If it is set to false, then no telemetry will be collected.
 DESCRIPTION
+  nullable    = false
+}
+
+variable "ignore_body_changes" {
+  type = object({
+    network_ddos_protection_plans = optional(list(string), [])
+  })
+  default     = {}
+  description = "A map of AzAPI body paths to ignore for each resource."
   nullable    = false
 }
 
@@ -46,6 +59,28 @@ DESCRIPTION
     condition     = var.lock != null ? contains(["CanNotDelete", "ReadOnly"], var.lock.kind) : true
     error_message = "Lock kind must be either `\"CanNotDelete\"` or `\"ReadOnly\"`."
   }
+}
+
+variable "resource_types" {
+  type = object({
+    network_ddos_protection_plans = optional(string, "Microsoft.Network/ddosProtectionPlans@2024-05-01")
+  })
+  default     = {}
+  description = "The Azure resource type API versions used by this module."
+  nullable    = false
+}
+
+variable "retry" {
+  type = object({
+    error_message_regex  = optional(list(string), ["ReferencedResourceNotProvisioned", "CannotDeleteResource"])
+    interval_seconds     = optional(number, 10)
+    max_interval_seconds = optional(number, 180)
+    multiplier           = optional(number, 1.5)
+    randomization_factor = optional(number, 0.5)
+  })
+  default     = {}
+  description = "Retry configuration for AzAPI resource operations."
+  nullable    = false
 }
 
 variable "role_assignments" {
@@ -81,4 +116,18 @@ variable "tags" {
   type        = map(string)
   default     = null
   description = "(Optional) Tags of the resource."
+}
+
+variable "timeouts" {
+  type = object({
+    network_ddos_protection_plans = optional(object({
+      create = optional(string, "30m")
+      delete = optional(string, "30m")
+      read   = optional(string, "5m")
+      update = optional(string, "30m")
+    }), {})
+  })
+  default     = {}
+  description = "Timeout configuration for resources created by this module."
+  nullable    = false
 }
