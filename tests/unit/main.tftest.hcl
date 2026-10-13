@@ -36,6 +36,11 @@ run "default_plan_contract" {
     random  = random
   }
 
+  variables {
+    # Use the non-nullable default instead of an inherited TF_VAR override.
+    enable_telemetry = null
+  }
+
   assert {
     condition     = output.name == var.name && output.resource_id == azurerm_network_ddos_protection_plan.this.id && output.resource.id == output.resource_id
     error_message = "The existing name, resource_id, and resource outputs must identify the DDoS protection plan."
