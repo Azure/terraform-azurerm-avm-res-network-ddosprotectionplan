@@ -16,10 +16,6 @@ mock_provider "azurerm" {
   }
 }
 
-mock_provider "modtm" {}
-
-mock_provider "random" {}
-
 variables {
   location            = "uksouth"
   name                = "ddos-test"
@@ -32,8 +28,8 @@ run "default_plan_contract" {
   providers = {
     azapi   = azapi
     azurerm = azurerm
-    modtm   = modtm
-    random  = random
+
+
   }
 
   variables {
@@ -57,7 +53,7 @@ run "default_plan_contract" {
   }
 
   assert {
-    condition     = length(random_uuid.telemetry) == 1
+    condition     = length(terraform_data.telemetry) == 1
     error_message = "Telemetry must remain enabled by default."
   }
 }
@@ -68,8 +64,8 @@ run "optional_resources_and_opt_out" {
   providers = {
     azapi   = azapi
     azurerm = azurerm
-    modtm   = modtm
-    random  = random
+
+
   }
 
   variables {
@@ -105,7 +101,7 @@ run "optional_resources_and_opt_out" {
   }
 
   assert {
-    condition     = length(random_uuid.telemetry) == 0
+    condition     = length(terraform_data.telemetry) == 0
     error_message = "Telemetry must be absent when disabled."
   }
 }
@@ -116,8 +112,8 @@ run "invalid_lock_kind" {
   providers = {
     azapi   = azapi
     azurerm = azurerm
-    modtm   = modtm
-    random  = random
+
+
   }
 
   variables {
