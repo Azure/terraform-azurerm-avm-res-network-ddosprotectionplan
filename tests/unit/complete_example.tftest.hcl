@@ -98,6 +98,15 @@ run "public_ip_association" {
     condition     = output.public_ip_resource_id == azapi_resource.public_ip.id && output.public_ip_ddos_protection_plan_id == module.ddosprotectionplan.resource_id
     error_message = "The example must expose the public IP ID and the plan association returned by Azure."
   }
+
+  assert {
+    condition = (
+      output.resource.id == module.ddosprotectionplan.resource_id &&
+      length(output.resource.virtual_network_ids) == 1 &&
+      output.resource.virtual_network_ids[0] == azapi_resource.virtual_network.id
+    )
+    error_message = "The example must output its caller-owned VNet association immediately, without waiting for the plan's read-only back-reference to refresh."
+  }
 }
 
 run "public_ip_controls" {
