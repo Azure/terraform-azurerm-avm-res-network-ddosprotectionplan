@@ -19,21 +19,23 @@ DESCRIPTION
 
 variable "ignore_body_changes" {
   type = object({
-    resources_resource_groups = optional(list(string), [])
-    network_virtual_networks  = optional(list(string), [])
+    resources_resource_groups   = optional(list(string), [])
+    network_virtual_networks    = optional(list(string), [])
+    network_public_ip_addresses = optional(list(string), [])
   })
   default     = {}
-  description = "Body-relative dot-notation paths ignored on `resources_resource_groups` and `network_virtual_networks`. Ignored configuration is not sent to Azure; changes take effect after apply."
+  description = "Body-relative dot-notation paths ignored on `resources_resource_groups`, `network_virtual_networks`, and `network_public_ip_addresses`. Ignored configuration is not sent to Azure; changes take effect after apply."
   nullable    = false
 }
 
 variable "resource_types" {
   type = object({
-    resources_resource_groups = optional(string, "Microsoft.Resources/resourceGroups@2025-04-01")
-    network_virtual_networks  = optional(string, "Microsoft.Network/virtualNetworks@2024-05-01")
+    resources_resource_groups   = optional(string, "Microsoft.Resources/resourceGroups@2025-04-01")
+    network_virtual_networks    = optional(string, "Microsoft.Network/virtualNetworks@2024-05-01")
+    network_public_ip_addresses = optional(string, "Microsoft.Network/publicIPAddresses@2024-05-01")
   })
   default     = {}
-  description = "AzAPI resource types and API versions: `resources_resource_groups` for the resource group and `network_virtual_networks` for the associated virtual network."
+  description = "AzAPI resource types and API versions: `resources_resource_groups` for the resource group, `network_virtual_networks` for the associated virtual network, and `network_public_ip_addresses` for the directly associated public IP."
   nullable    = false
 }
 

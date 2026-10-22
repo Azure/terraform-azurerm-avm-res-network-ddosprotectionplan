@@ -3,7 +3,7 @@
 | Example | Scenario |
 | --- | --- |
 | [default](./default) | A DDoS protection plan with default optional settings and an AzAPI resource group. |
-| [complete](./complete) | A DDoS protection plan with tags, a `CanNotDelete` lock, a Reader assignment, and an associated virtual network. |
+| [complete](./complete) | A DDoS protection plan with tags, a `CanNotDelete` lock, a Reader assignment, an associated virtual network, and a directly associated Standard public IP. |
 
 Both examples use AzAPI for all direct Azure operations and run without required input variables.
 
