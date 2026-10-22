@@ -4,7 +4,8 @@
 
 Deploys a DDoS protection plan with tags, a `CanNotDelete` lock, a Reader assignment for the deployment principal, an associated virtual network, and a directly associated Standard public IP.
 All direct Azure operations use AzAPI.
-The public IP is static IPv4 with regional Standard SKU. Its `ddosSettings` explicitly enables protection and references the plan ID; it does not inherit protection from the VNet.
+The public IP is zone-redundant static IPv4 with regional Standard SKU. Its `ddosSettings` explicitly enables protection and references the plan ID; it does not inherit protection from the VNet.
+The network resources default to `westus2` instead of `westus` because the public IP explicitly uses availability zones 1, 2, and 3. Region overrides must also support these zones.
 The example checks that Azure returns the expected public-IP protection mode and plan ID, and exposes the association through discrete outputs.
 The caller needs permission to create role assignments and locks as well as networking resources.
 Applying this example incurs Azure DDoS protection plan and public IP charges. Destroy it when testing is finished.
@@ -97,6 +98,7 @@ resource "azapi_resource" "public_ip" {
   parent_id = azapi_resource.resource_group.id
   type      = var.resource_types.network_public_ip_addresses
   body = {
+    zones = ["1", "2", "3"]
     sku = {
       name = "Standard"
       tier = "Regional"
@@ -168,12 +170,12 @@ The following input variables are optional (have default values):
 
 ### <a name="input_ddos_plan_location"></a> [ddos\_plan\_location](#input\_ddos\_plan\_location)
 
-Description: This variable defines the Azure region where the DDOS protection plan will be created.  
-The default value is "westus".
+Description: This variable defines the Azure region for the DDoS protection plan, virtual network, and public IP.  
+The default value is "westus2". Choose a region supporting public IP availability zones 1, 2, and 3.
 
 Type: `string`
 
-Default: `"westus"`
+Default: `"westus2"`
 
 ### <a name="input_enable_telemetry"></a> [enable\_telemetry](#input\_enable\_telemetry)
 

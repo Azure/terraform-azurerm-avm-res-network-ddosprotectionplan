@@ -85,6 +85,7 @@ resource "azapi_resource" "public_ip" {
   parent_id = azapi_resource.resource_group.id
   type      = var.resource_types.network_public_ip_addresses
   body = {
+    zones = ["1", "2", "3"]
     sku = {
       name = "Standard"
       tier = "Regional"

@@ -1,9 +1,9 @@
 variable "ddos_plan_location" {
   type        = string
-  default     = "westus"
+  default     = "westus2"
   description = <<DESCRIPTION
-This variable defines the Azure region where the DDOS protection plan will be created.
-The default value is "westus".
+This variable defines the Azure region for the DDoS protection plan, virtual network, and public IP.
+The default value is "westus2". Choose a region supporting public IP availability zones 1, 2, and 3.
 DESCRIPTION
 }
 

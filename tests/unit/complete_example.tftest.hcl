@@ -77,14 +77,16 @@ run "public_ip_association" {
       azapi_resource.public_ip.body.sku.name == "Standard" &&
       azapi_resource.public_ip.body.sku.tier == "Regional" &&
       azapi_resource.public_ip.body.properties.publicIPAddressVersion == "IPv4" &&
-      azapi_resource.public_ip.body.properties.publicIPAllocationMethod == "Static"
+      azapi_resource.public_ip.body.properties.publicIPAllocationMethod == "Static" &&
+      toset(azapi_resource.public_ip.body.zones) == toset(["1", "2", "3"])
     )
-    error_message = "The example must create a static IPv4 public IP with regional Standard SKU."
+    error_message = "The example must create a zone-redundant static IPv4 public IP with regional Standard SKU."
   }
 
   assert {
     condition = (
       azapi_resource.public_ip.parent_id == azapi_resource.resource_group.id &&
+      azapi_resource.public_ip.location == var.ddos_plan_location &&
       azapi_resource.public_ip.body.properties.ddosSettings.protectionMode == "Enabled" &&
       azapi_resource.public_ip.body.properties.ddosSettings.ddosProtectionPlan.id == module.ddosprotectionplan.resource_id &&
       azapi_resource.public_ip.type == "Microsoft.Network/publicIPAddresses@2024-05-01"
