@@ -1,3 +1,5 @@
-# Legacy example (AzureRM v4)
+# Default AzAPI example
 
-This deploys the module in its simplest form using AzureRM v4. The directory name is retained for existing links.
+Deploys the module with default optional settings and an AzAPI resource group.
+The legacy directory name is retained for existing links; AzureRM is not required.
+Applying this example incurs Azure DDoS protection plan charges. Destroy it when testing is finished.
