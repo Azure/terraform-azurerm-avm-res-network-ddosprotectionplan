@@ -1,6 +1,3 @@
-# DDOS protection plan do not support diagnostic settings.
-
-
 variable "location" {
   type        = string
   description = "The Azure location where the resources will be deployed."
@@ -12,10 +9,15 @@ variable "name" {
   description = "the name of the ddos protection plan"
 }
 
-# This is required for most resource modules
-variable "resource_group_name" {
+variable "parent_id" {
   type        = string
-  description = "The resource group where the resources will be deployed."
+  description = "The fully-qualified ARM resource ID of the existing resource group into which the DDoS protection plan will be deployed."
+  nullable    = false
+
+  validation {
+    condition     = can(provider::azapi::parse_resource_id("Microsoft.Resources/resourceGroups", var.parent_id))
+    error_message = "`parent_id` must be a valid Azure resource group resource ID."
+  }
 }
 
 variable "enable_telemetry" {
@@ -29,10 +31,28 @@ DESCRIPTION
   nullable    = false
 }
 
+variable "ignore_body_changes" {
+  type = object({
+    network_ddos_protection_plans  = optional(list(string), [])
+    authorization_locks            = optional(list(string), [])
+    authorization_role_assignments = optional(list(string), [])
+  })
+  default     = {}
+  description = <<DESCRIPTION
+Body-relative dot-notation paths to ignore for each AzAPI resource. Ignored configuration is not sent to Azure until the path is removed. Changes take effect only after apply. Non-empty lists require Terraform 1.11 or later; individual list indices are not supported.
+
+- `network_ddos_protection_plans` - Paths ignored on the DDoS protection plan.
+- `authorization_locks` - Paths ignored on the management lock.
+- `authorization_role_assignments` - Paths ignored on every role assignment.
+DESCRIPTION
+  nullable    = false
+}
+
 variable "lock" {
   type = object({
-    kind = string
-    name = optional(string, null)
+    kind  = string
+    name  = optional(string, null)
+    notes = optional(string, null)
   })
   default     = null
   description = <<DESCRIPTION
@@ -40,6 +60,7 @@ Controls the Resource Lock configuration for this resource. The following proper
 
 - `kind` - (Required) The type of lock. Possible values are `\"CanNotDelete\"` and `\"ReadOnly\"`.
 - `name` - (Optional) The name of the lock. If not specified, a name will be generated based on the `kind` value. Changing this forces the creation of a new resource.
+- `notes` - (Optional) Notes about the lock. This value maps to `Microsoft.Authorization/locks.properties.notes`.
 DESCRIPTION
 
   validation {
@@ -48,8 +69,44 @@ DESCRIPTION
   }
 }
 
+variable "resource_types" {
+  type = object({
+    network_ddos_protection_plans  = optional(string, "Microsoft.Network/ddosProtectionPlans@2024-05-01")
+    authorization_locks            = optional(string, "Microsoft.Authorization/locks@2020-05-01")
+    authorization_role_assignments = optional(string, "Microsoft.Authorization/roleAssignments@2022-04-01")
+  })
+  default     = {}
+  description = <<DESCRIPTION
+AzAPI resource types and API versions used by this module.
+
+- `network_ddos_protection_plans` - Resource type and API version for the DDoS protection plan.
+- `authorization_locks` - Resource type and API version for the management lock.
+- `authorization_role_assignments` - Resource type and API version for role assignments.
+DESCRIPTION
+  nullable    = false
+}
+
+variable "retry" {
+  type = object({
+    error_message_regex  = optional(list(string))
+    interval_seconds     = optional(number)
+    max_interval_seconds = optional(number)
+  })
+  default     = null
+  description = <<DESCRIPTION
+Retry configuration applied to every `azapi` resource managed by the module (root resource and all submodules). Defaults to `null` (no custom retry).
+
+- `error_message_regex`  - (Optional) A list of regex patterns matching error messages that trigger a retry.
+- `interval_seconds`     - (Optional) Initial interval between retries in seconds.
+- `max_interval_seconds` - (Optional) Maximum interval between retries in seconds.
+
+See <https://registry.terraform.io/providers/Azure/azapi/latest/docs/resources/resource#retry> for full semantics.
+DESCRIPTION
+}
+
 variable "role_assignments" {
   type = map(object({
+    name                                   = optional(string, null)
     role_definition_id_or_name             = string
     principal_id                           = string
     description                            = optional(string, null)
@@ -61,8 +118,9 @@ variable "role_assignments" {
   }))
   default     = {}
   description = <<DESCRIPTION
-A map of role assignments to create on the <RESOURCE>. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
+A map of role assignments to create on the DDoS protection plan. The map key is deliberately arbitrary to avoid issues where map keys maybe unknown at plan time.
 
+- `name` - (Optional) The name of the role assignment. If not set, a random UUID will be generated. Changing this forces the creation of a new resource.
 - `role_definition_id_or_name` - The ID or name of the role definition to assign to the principal.
 - `principal_id` - The ID of the principal to assign the role to.
 - `description` - (Optional) The description of the role assignment.
@@ -75,10 +133,36 @@ A map of role assignments to create on the <RESOURCE>. The map key is deliberate
 > Note: only set `skip_service_principal_aad_check` to true if you are assigning a role to a service principal.
 DESCRIPTION
   nullable    = false
+
+  validation {
+    condition = alltrue([
+      for _, v in var.role_assignments :
+      v.delegated_managed_identity_resource_id == null || can(provider::azapi::parse_resource_id("Microsoft.ManagedIdentity/userAssignedIdentities", v.delegated_managed_identity_resource_id))
+    ])
+    error_message = "Each `role_assignments[*].delegated_managed_identity_resource_id` must be a valid user-assigned managed identity resource ID, or null."
+  }
 }
 
 variable "tags" {
   type        = map(string)
   default     = null
   description = "(Optional) Tags of the resource."
+}
+
+variable "timeouts" {
+  type = object({
+    create = optional(string)
+    read   = optional(string)
+    update = optional(string)
+    delete = optional(string)
+  })
+  default     = null
+  description = <<DESCRIPTION
+Default per-operation timeouts applied to every `azapi` resource managed by the module. Defaults to `null` (provider defaults). Each value is a Go duration string (e.g. `30m`, `1h`).
+
+- `create` - (Optional) Timeout for create operations.
+- `read`   - (Optional) Timeout for read operations.
+- `update` - (Optional) Timeout for update operations.
+- `delete` - (Optional) Timeout for delete operations.
+DESCRIPTION
 }
