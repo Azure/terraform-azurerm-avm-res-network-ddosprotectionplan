@@ -146,6 +146,11 @@ run "combined_interfaces_and_controls" {
   }
 
   assert {
+    condition     = azapi_resource.role_assignments["reader"].replace_triggers_external_values.role_definition_id_or_name == "reader"
+    error_message = "Role replacement detection must use the case-normalized input, not the resolved data-source ID that can become unknown during planning."
+  }
+
+  assert {
     condition     = output.resource.tags == var.tags && azapi_resource.this.type == var.resource_types.network_ddos_protection_plans
     error_message = "Tags and resource-type overrides must pass through."
   }
@@ -169,6 +174,51 @@ run "combined_interfaces_and_controls" {
   assert {
     condition     = length(terraform_data.telemetry) == 0
     error_message = "Telemetry must be absent when disabled."
+  }
+  providers = {
+    azapi  = azapi
+    random = random
+    time   = time
+  }
+}
+
+run "changed_role_input_updates_replacement_trigger" {
+  command = plan
+
+  variables {
+    enable_telemetry = false
+    lock = {
+      kind = "CanNotDelete"
+    }
+    role_assignments = {
+      reader = {
+        role_definition_id_or_name       = "Contributor"
+        principal_id                     = "00000000-0000-0000-0000-000000000003"
+        skip_service_principal_aad_check = true
+      }
+    }
+  }
+
+  override_data {
+    target = data.azapi_resource_list.role_definitions[0]
+    values = {
+      output = {
+        results = [{
+          id        = "/subscriptions/00000000-0000-0000-0000-000000000001/providers/Microsoft.Authorization/roleDefinitions/b24988ac-6180-42a0-ab88-20f7382dd24c"
+          role_name = "Contributor"
+        }]
+      }
+    }
+  }
+
+  assert {
+    condition     = azapi_resource.role_assignments["reader"].replace_triggers_external_values.role_definition_id_or_name == "contributor" && azapi_resource.role_assignments["reader"].replace_triggers_external_values.role_definition_id_or_name != "reader"
+    error_message = "A genuine role input change must change the replacement trigger."
+  }
+
+  assert {
+    condition     = endswith(azapi_resource.role_assignments["reader"].body.properties.roleDefinitionId, "/b24988ac-6180-42a0-ab88-20f7382dd24c")
+    error_message = "The request body must still use the resolved ARM ID for the new role."
   }
   providers = {
     azapi  = azapi
@@ -209,6 +259,11 @@ run "explicit_assignment_and_lock" {
   assert {
     condition     = azapi_resource.role_assignments["explicit"].body.properties.roleDefinitionId == "/subscriptions/00000000-0000-0000-0000-000000000001/providers/Microsoft.Authorization/roleDefinitions/acdd72a7-3385-48ef-bd42-f606fba81ae7" && length(data.azapi_resource_list.role_definitions) == 0
     error_message = "Tenant-level role IDs must gain the subscription scope without performing a role-name lookup."
+  }
+
+  assert {
+    condition     = azapi_resource.role_assignments["explicit"].replace_triggers_external_values.role_definition_id_or_name == lower(var.role_assignments.explicit.role_definition_id_or_name)
+    error_message = "Role-ID replacement detection must use the input ID, independently of request-body subscription normalization."
   }
 
   assert {

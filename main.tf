@@ -53,6 +53,7 @@ resource "azapi_resource" "role_assignments" {
   ignore_body_changes  = length(var.ignore_body_changes.authorization_role_assignments) > 0 ? var.ignore_body_changes.authorization_role_assignments : null
   ignore_casing        = true
   ignore_null_property = true
+  # Deferred role lookups must not make replacement triggers unknown.
   replace_triggers_external_values = {
     name                                   = each.value.name
     condition                              = each.value.condition
@@ -61,7 +62,7 @@ resource "azapi_resource" "role_assignments" {
     description                            = each.value.description
     principal_id                           = lower(each.value.principal_id)
     principal_type                         = local.role_assignments[each.key].principal_type
-    role_definition_id_or_name             = lower(local.role_assignments[each.key].role_definition_id_or_name)
+    role_definition_id_or_name             = lower(each.value.role_definition_id_or_name)
   }
   response_export_values = []
   retry                  = var.retry
