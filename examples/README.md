@@ -3,9 +3,10 @@
 | Example | Scenario |
 | --- | --- |
 | [default](./default) | A DDoS protection plan with default optional settings and an AzAPI resource group. |
-| [complete](./complete) | A DDoS protection plan with tags, a `CanNotDelete` lock, a Reader assignment, an associated virtual network, and a directly associated Standard public IP. |
+| [complete](./complete) | A DDoS protection plan with tags, a `CanNotDelete` lock, a Reader assignment, and an associated virtual network. |
+| [individual-ip-protection](./individual-ip-protection) | Direct Standard public-IP association with a DDoS protection plan. Manual deployment only in an already feature-enabled subscription; excluded from E2E discovery with `.e2eignore`. |
 
-Both examples use AzAPI for all direct Azure operations and run without required input variables.
+All examples use AzAPI for all direct Azure operations and have no required input variables. Only `default` and `complete` participate in automated E2E deployment; neither requires feature registration.
 
 ## Running the examples
 
@@ -20,6 +21,8 @@ avm test e2e --example complete
 Each command deploys the selected example, checks idempotency, and destroys the test resources.
 The `complete` example requires permission to create role assignments and locks as well as networking resources.
 Azure DDoS protection plans incur charges; use an approved test scope and verify cleanup.
+
+The individual IP example requires `Microsoft.Network/AllowBringYourOwnPublicIpAddress`, which cannot be registered in AVM CI test subscriptions. See its README for prerequisites and manual deployment steps. No repository-wide feature-registration manifest is used.
 
 ## Adding or updating examples
 

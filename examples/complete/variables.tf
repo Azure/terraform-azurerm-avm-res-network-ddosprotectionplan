@@ -1,10 +1,7 @@
 variable "ddos_plan_location" {
   type        = string
   default     = "westus2"
-  description = <<DESCRIPTION
-This variable defines the Azure region for the DDoS protection plan, virtual network, and public IP.
-The default value is "westus2". Choose a region supporting public IP availability zones 1, 2, and 3.
-DESCRIPTION
+  description = "The Azure region for the DDoS protection plan and associated virtual network."
 }
 
 variable "enable_telemetry" {
@@ -19,23 +16,21 @@ DESCRIPTION
 
 variable "ignore_body_changes" {
   type = object({
-    resources_resource_groups   = optional(list(string), [])
-    network_virtual_networks    = optional(list(string), [])
-    network_public_ip_addresses = optional(list(string), [])
+    resources_resource_groups = optional(list(string), [])
+    network_virtual_networks  = optional(list(string), [])
   })
   default     = {}
-  description = "Body-relative dot-notation paths ignored on `resources_resource_groups`, `network_virtual_networks`, and `network_public_ip_addresses`. Ignored configuration is not sent to Azure; changes take effect after apply."
+  description = "Body-relative dot-notation paths ignored on `resources_resource_groups` and `network_virtual_networks`. Ignored configuration is not sent to Azure; changes take effect after apply."
   nullable    = false
 }
 
 variable "resource_types" {
   type = object({
-    resources_resource_groups   = optional(string, "Microsoft.Resources/resourceGroups@2025-04-01")
-    network_virtual_networks    = optional(string, "Microsoft.Network/virtualNetworks@2024-05-01")
-    network_public_ip_addresses = optional(string, "Microsoft.Network/publicIPAddresses@2024-05-01")
+    resources_resource_groups = optional(string, "Microsoft.Resources/resourceGroups@2025-04-01")
+    network_virtual_networks  = optional(string, "Microsoft.Network/virtualNetworks@2024-05-01")
   })
   default     = {}
-  description = "AzAPI resource types and API versions: `resources_resource_groups` for the resource group, `network_virtual_networks` for the associated virtual network, and `network_public_ip_addresses` for the directly associated public IP."
+  description = "AzAPI resource types and API versions: `resources_resource_groups` for the resource group and `network_virtual_networks` for the associated virtual network."
   nullable    = false
 }
 
@@ -52,10 +47,7 @@ variable "retry" {
 variable "rg_location" {
   type        = string
   default     = "westus"
-  description = <<DESCRIPTION
-This variable defines the Azure region where the resource group will be created.
-The default value is "westus".
-DESCRIPTION
+  description = "The Azure region where the resource group will be created."
 }
 
 variable "timeouts" {

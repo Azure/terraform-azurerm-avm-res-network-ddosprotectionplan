@@ -1,0 +1,2 @@
+Direct public-IP plan association requires Microsoft.Network/AllowBringYourOwnPublicIpAddress.
+AVM CI test subscriptions cannot register this feature. Deploy manually only in an already-enabled subscription.
