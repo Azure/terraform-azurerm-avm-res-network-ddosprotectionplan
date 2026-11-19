@@ -1,4 +1,4 @@
-# Default example
+# Defaults example
 
 Deploys the module with default optional settings and an AzAPI resource group.
 All direct Azure operations use AzAPI.

@@ -6,7 +6,7 @@
 | [complete](./complete) | A DDoS protection plan with tags, a `CanNotDelete` lock, a Reader assignment, and an associated virtual network. |
 | [individual-ip-protection](./individual-ip-protection) | Direct Standard public-IP association with a DDoS protection plan. Manual deployment only in an already feature-enabled subscription; excluded from E2E discovery with `.e2eignore`. |
 
-All examples use AzAPI for all direct Azure operations and have no required input variables. Only `default` and `complete` participate in automated E2E deployment; neither requires feature registration.
+All examples use AzAPI for all direct Azure operations and have no required input variables. Only `defaults` and `complete` participate in automated E2E deployment; neither requires feature registration.
 
 ## Running the examples
 
@@ -14,7 +14,7 @@ Authenticate to an isolated Azure test subscription, then run from the repositor
 
 ```powershell
 Import-Module Avm.Authoring
-avm test e2e --example default
+avm test e2e --example defaults
 avm test e2e --example complete
 ```
 
